@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Pending Prompts",
+    "description": "A Session-bound list of prompts to send after the current turn, in a right-sidebar tab. Write one down while the agent is still working, then send it when you are ready."
+  }
+}

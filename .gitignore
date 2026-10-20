@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Packed tarballs and logs
+*.tgz
+*.log
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Unrelated local archives kept in this directory
+*.archived/

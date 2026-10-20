@@ -1,0 +1,69 @@
+{
+  "name": "@voltarenyah/dsh-prompt-note",
+  "version": "0.1.0",
+  "description": "A Session-bound pending-prompts list for DeepSeek Harness (DSH): write the next prompt in a right-sidebar tab while the agent is still working, then send it when you are ready.",
+  "type": "module",
+  "license": "MIT",
+  "author": "yuanheng",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/voltarenyah/dsh-prompt-note.git"
+  },
+  "homepage": "https://github.com/voltarenyah/dsh-prompt-note#readme",
+  "bugs": {
+    "url": "https://github.com/voltarenyah/dsh-prompt-note/issues"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek",
+    "deepseek-harness",
+    "cordis",
+    "cordis-plugin",
+    "prompt",
+    "prompt-queue",
+    "sidebar"
+  ],
+  "engines": {
+    "node": ">=20",
+    "dsh": ">=0.2.1-rc.2"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "check": "node --check index.js && node --check client.js",
+    "prepublishOnly": "npm run check",
+    "pack:check": "npm pack --dry-run"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  }
+}

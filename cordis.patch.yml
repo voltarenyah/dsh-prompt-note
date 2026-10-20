@@ -1,0 +1,4 @@
+- insert:
+    - id: prompt-note
+      name: '@voltarenyah/dsh-prompt-note'
+      config: {}
