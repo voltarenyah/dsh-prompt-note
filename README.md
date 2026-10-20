@@ -20,7 +20,7 @@ failing at runtime.
 
 - **In the app:** sidebar → **Plugins** → **Add plugin**, then enter the package
   name `@voltarenyah/dsh-prompt-note` (or a pinned
-  `@voltarenyah/dsh-prompt-note@0.1.0`) and install.
+  `@voltarenyah/dsh-prompt-note@0.1.1`) and install.
 - **With an agent:** ask it to install the bundle `@voltarenyah/dsh-prompt-note`.
 - **From the CLI:** `dsh plugin --profile <profile> add @voltarenyah/dsh-prompt-note`.
 

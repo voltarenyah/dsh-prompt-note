@@ -1,6 +1,6 @@
 {
   "name": "@voltarenyah/dsh-prompt-note",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A Session-bound pending-prompts list for DeepSeek Harness (DSH): write the next prompt in a right-sidebar tab while the agent is still working, then send it when you are ready.",
   "type": "module",
   "license": "MIT",
@@ -47,7 +47,8 @@
     "locale/*.json",
     "icon.svg",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "check": "node --check index.js && node --check client.js",
