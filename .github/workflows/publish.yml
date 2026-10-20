@@ -1,19 +1,21 @@
 # Publishes @voltarenyah/dsh-prompt-note to the npm registry when a GitHub
-# release is *published* (drafts do not publish anything).
+# release is *published* (drafts publish nothing).
 #
-# One-time setup, on npmjs.com, pick ONE:
-#   A. Trusted publishing (no secret, recommended): package → Settings →
-#      Trusted publishing → add GitHub Actions: owner `voltarenyah`,
-#      repository `dsh-prompt-note`, workflow `publish.yml`, environment empty.
-#      With this in place you may delete the `NODE_AUTH_TOKEN` env below.
-#   B. Repository secret `NPM_TOKEN` holding a *Granular Access Token* with
-#      "Read and write" on the package and "Bypass 2FA" enabled. A classic
-#      token cannot publish for an account whose 2FA is `auth-and-writes`.
-#      Granular tokens expire (90 days max), so set a renewal reminder.
+# Authentication: npm **Trusted publishing** (OIDC) — no token, no secret, no
+# renewal. One-time setup on npmjs.com for this package:
+#   Package → Settings → Trusted publishing → Add a publisher:
+#     Publisher:            GitHub Actions
+#     Organization or user: voltarenyah
+#     Repository:           dsh-prompt-note
+#     Workflow filename:    publish.yml
+#     Environment:          (leave empty — see `environment:` below)
+#   Then this workflow authenticates itself through `id-token: write`.
+#   A token-based fallback is documented at the bottom of this file.
 #
-# This package has no dependencies and no build step: the published files are
-# the sources themselves, so CI only verifies the tag/version pair and the
-# JavaScript syntax (which `prepublishOnly` would run anyway).
+# Trusted publishing needs npm >= 11.5.1 and provenance needs a public
+# repository; both are satisfied below. This package has no dependencies and no
+# build step — the published files are the sources themselves — so CI only
+# verifies the tag/version pair and the JavaScript syntax.
 
 name: Publish to npm
 
@@ -23,18 +25,28 @@ on:
 
 permissions:
   contents: read
-  id-token: write # required by `npm publish --provenance`
+  id-token: write # the OIDC token trusted publishing and provenance need
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # If you filled in an Environment name on npmjs.com, declare it here with
+    # `environment: <name>` so the OIDC subject matches.
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org/
+          # No `registry-url` on purpose: it writes an `.npmrc` that expects
+          # NODE_AUTH_TOKEN, which trusted publishing does not use. The target
+          # registry comes from package.json's `publishConfig.registry`.
+
+      # Node 22 bundles npm 10, which cannot do the OIDC exchange.
+      - name: Ensure npm supports trusted publishing
+        run: |
+          npm install --global npm@^11.5.1
+          npm --version
 
       - name: Check the release tag matches package.json
         run: |
@@ -51,11 +63,17 @@ jobs:
         run: npm run check
 
       - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           if [ "${{ github.event.release.prerelease }}" = "true" ]; then
             npm publish --provenance --tag next
           else
             npm publish --provenance
           fi
+
+# Token fallback (if you ever drop trusted publishing): add a repository secret
+# NPM_TOKEN holding a *Granular Access Token* with "Read and write" on the
+# package and "Bypass 2FA" enabled (a classic token cannot publish while the
+# account's 2FA is `auth-and-writes`), then set on the publish step:
+#   env:
+#     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+# and add `registry-url: https://registry.npmjs.org/` back to setup-node.
