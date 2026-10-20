@@ -1,0 +1,61 @@
+# Publishes @voltarenyah/dsh-prompt-note to the npm registry when a GitHub
+# release is *published* (drafts do not publish anything).
+#
+# One-time setup, on npmjs.com, pick ONE:
+#   A. Trusted publishing (no secret, recommended): package → Settings →
+#      Trusted publishing → add GitHub Actions: owner `voltarenyah`,
+#      repository `dsh-prompt-note`, workflow `publish.yml`, environment empty.
+#      With this in place you may delete the `NODE_AUTH_TOKEN` env below.
+#   B. Repository secret `NPM_TOKEN` holding a *Granular Access Token* with
+#      "Read and write" on the package and "Bypass 2FA" enabled. A classic
+#      token cannot publish for an account whose 2FA is `auth-and-writes`.
+#      Granular tokens expire (90 days max), so set a renewal reminder.
+#
+# This package has no dependencies and no build step: the published files are
+# the sources themselves, so CI only verifies the tag/version pair and the
+# JavaScript syntax (which `prepublishOnly` would run anyway).
+
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write # required by `npm publish --provenance`
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org/
+
+      - name: Check the release tag matches package.json
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="${GITHUB_REF_NAME#v}"
+          echo "package.json: $version"
+          echo "release tag : $tag"
+          if [ "$version" != "$tag" ]; then
+            echo "::error::Release tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+
+      - name: Syntax check
+        run: npm run check
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ "${{ github.event.release.prerelease }}" = "true" ]; then
+            npm publish --provenance --tag next
+          else
+            npm publish --provenance
+          fi
