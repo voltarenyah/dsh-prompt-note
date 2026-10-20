@@ -1,5 +1,7 @@
 # @voltarenyah/dsh-prompt-note
 
+[![npm version](https://img.shields.io/npm/v/@voltarenyah/dsh-prompt-note.svg)](https://www.npmjs.com/package/@voltarenyah/dsh-prompt-note)
+
 A Session-bound “pending prompts” list for DeepSeek Harness (DSH), rendered as a
 tab in the **right sidebar**. Write the next prompt down while the agent is
 still working on the current turn, then send it — one at a time — when you are
@@ -7,9 +9,14 @@ ready.
 
 ![Pending prompts in the DSH right sidebar](https://raw.githubusercontent.com/voltarenyah/dsh-prompt-note/main/docs/preview.webp)
 
-## Install
+## Compatibility
 
-Requires DSH **≥ 0.2.1-rc.2**.
+Requires DSH **≥ 0.2.1-rc.2** — the release that ships the right-sidebar tab
+registry (`ctx.sidebarRightTabs`) this plugin registers into. The requirement is
+declared as `engines.dsh`, so an older Host refuses the installation instead of
+failing at runtime.
+
+## Install
 
 - **In the app:** sidebar → **Plugins** → **Add plugin**, then enter the package
   name `@voltarenyah/dsh-prompt-note` (or a pinned
