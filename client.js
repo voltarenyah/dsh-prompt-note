@@ -20,6 +20,8 @@ window.__ModuleLoader__.load({
     const TAB_ID = 'prompt-note'
     const ROUTE = 'prompt-note/api/'
     const API_TIMEOUT_MS = 20000
+    /** Share of the viewport height the note editor may grow to before scrolling. */
+    const EDITOR_VIEWPORT_SHARE = 0.55
 
     const DICTS = {
       en: {
@@ -90,6 +92,9 @@ window.__ModuleLoader__.load({
   font: inherit; line-height: 1.5; outline: none; }
 .pn-input::placeholder { color: var(--dsw-alias-state-idle-primary); }
 .pn-input:focus { border-color: var(--dsw-alias-border-l2); }
+/* The note editor grows with its content (height set from JS); the cap keeps a
+   very long note from pushing the panel out of the viewport. */
+.pn-editor { max-height: 55vh; }
 .pn-compose-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .pn-hint { color: var(--dsw-alias-state-idle-primary); font-size: 11px; }
 .pn-btn { flex: none; border: 1px solid var(--dsw-alias-border-l1);
@@ -257,6 +262,42 @@ window.__ModuleLoader__.load({
         ref: textRef,
         className: props.expanded ? 'pn-item-text' : 'pn-item-text is-clamped',
       }, props.text)
+    }
+
+    /**
+     * The note editor: a textarea that grows to fit its content, so editing a
+     * long prompt shows all of it instead of a three-row window.
+     *
+     * The height is measured after every change and capped at a share of the
+     * viewport; a note longer than the cap scrolls inside the box rather than
+     * pushing the panel's own layout off screen.
+     * @param props.value - the draft text.
+     * @param props.onChange - `(value) => void`.
+     * @param props.onKeyDown - key handler shared with the footer buttons.
+     */
+    function NoteEditor(props) {
+      const editorRef = useRef(null)
+
+      React.useLayoutEffect(() => {
+        const element = editorRef.current
+        if (element === null) return
+        const limit = Math.round(window.innerHeight * EDITOR_VIEWPORT_SHARE)
+        // Measure from scratch, then apply the content height.
+        element.style.height = 'auto'
+        element.style.height = `${Math.min(element.scrollHeight, limit)}px`
+        element.style.overflowY = element.scrollHeight > limit ? 'auto' : 'hidden'
+      }, [props.value])
+
+      return h('textarea', {
+        ref: editorRef,
+        className: 'pn-input pn-editor',
+        rows: 3,
+        value: props.value,
+        autoFocus: true,
+        spellCheck: false,
+        onChange: (event) => props.onChange(event.target.value),
+        onKeyDown: props.onKeyDown,
+      })
     }
 
     /**
@@ -450,13 +491,9 @@ window.__ModuleLoader__.load({
         const sending = sendingId === note.id
         if (editing !== null && editing.id === note.id) {
           return h('div', { className: 'pn-item', key: note.id },
-            h('textarea', {
-              className: 'pn-input',
-              rows: 3,
+            h(NoteEditor, {
               value: editing.text,
-              autoFocus: true,
-              spellCheck: false,
-              onChange: (event) => setEditing({ id: note.id, text: event.target.value }),
+              onChange: (value) => setEditing({ id: note.id, text: value }),
               onKeyDown: (event) => {
                 if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
                   event.preventDefault()
