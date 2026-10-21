@@ -4,6 +4,30 @@ All notable changes to `@voltarenyah/dsh-prompt-note` are documented here. The
 format is loosely [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] — 2026-10-21
+
+Layout work on the note list; no API or storage changes.
+
+### Changed
+
+- **Each note is a block.** The text spans the full panel width and the
+  Send / Edit / Delete controls sit in a footer row underneath it. A row layout
+  used to leave the text only the width the three buttons did not take, so a
+  long prompt folded into a narrow column.
+- **Long notes clamp and fade.** Text taller than the clamp box fades out at the
+  bottom and gets a `Show more` / `Show less` control on the same footer row as
+  the buttons. That control appears only when the rendered text really
+  overflows — measured with a `ResizeObserver` rather than a character
+  threshold, so resizing the sidebar behaves.
+- **The editor grows to fit.** Editing a long note used to show a fixed
+  three-row box; the textarea now measures its content and grows to show all of
+  it, capped at 55% of the viewport height, with the overflow scrolling inside
+  the box. Manual resize stays available.
+
+### Added
+
+- `Show more` / `Show less` and the new README preview screenshot.
+
 ## [0.1.1] — 2026-10-20
 
 Docs and release pipeline only; no runtime changes.
