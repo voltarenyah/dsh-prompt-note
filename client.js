@@ -16,7 +16,6 @@ window.__ModuleLoader__.load({
     const React = require('react')
     const h = React.createElement
     const { useCallback, useEffect, useRef, useState } = React
-
     const NAMESPACE = 'prompt-note'
     const TAB_ID = 'prompt-note'
     const ROUTE = 'prompt-note/api/'
@@ -34,6 +33,8 @@ window.__ModuleLoader__.load({
         delete: 'Delete',
         save: 'Save',
         cancel: 'Cancel',
+        expand: 'Show more',
+        collapse: 'Show less',
         empty: 'Nothing pending. Write down the idea you want to run after this turn — it stays here until you send it.',
         countOne: '1 prompt waiting',
         countMany: '{count} prompts waiting',
@@ -52,6 +53,8 @@ window.__ModuleLoader__.load({
         delete: '删除',
         save: '保存',
         cancel: '取消',
+        expand: '展开全文',
+        collapse: '收起',
         empty: '还没有待发送的想法。趁现在想到什么就先写下来，它会一直留在这里，直到你点发送。',
         countOne: '1 条待发送',
         countMany: '{count} 条待发送',
@@ -105,16 +108,25 @@ window.__ModuleLoader__.load({
   color: var(--dsw-alias-state-error-primary); }
 .pn-list { flex: 1; min-height: 0; overflow-y: auto; display: flex;
   flex-direction: column; gap: 6px; padding-right: 2px; }
-.pn-item { display: flex; flex-direction: row; align-items: flex-start; gap: 8px;
+/* One note is a block: the text takes the full width, the controls sit in a
+   footer row underneath, so a long prompt is not squeezed into the space left
+   over by three buttons. */
+.pn-item { display: flex; flex-direction: column; gap: 5px;
   padding: 8px 10px; border: 1px solid var(--dsw-alias-border-l1);
   border-radius: 10px; background: var(--dsw-alias-bg-layer-1); }
-.pn-item.is-editing { flex-direction: column; align-items: stretch; }
 .pn-item.is-sending { opacity: .6; }
-.pn-item-text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere;
-  color: var(--dsw-alias-label-primary); max-height: 148px; overflow: hidden; }
-.pn-item-actions { flex: none; display: flex; align-items: center; justify-content: flex-end;
-  gap: 4px; opacity: .55; transition: opacity .12s ease; }
+.pn-item-text { white-space: pre-wrap; overflow-wrap: anywhere;
+  color: var(--dsw-alias-label-primary); }
+.pn-item-text.is-clamped { max-height: 160px; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent);
+  mask-image: linear-gradient(to bottom, #000 82%, transparent); }
+.pn-more { padding: 0; border: none; background: transparent;
+  color: var(--dsw-alias-brand-primary); font: inherit; cursor: pointer; }
+.pn-more:hover { text-decoration: underline; }
+.pn-item-actions { display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; opacity: .8; transition: opacity .12s ease; }
 .pn-item:hover .pn-item-actions, .pn-item:focus-within .pn-item-actions { opacity: 1; }
+.pn-item-buttons { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .pn-empty { margin-top: 10px; padding: 12px 4px; color: var(--dsw-alias-label-secondary); }
 .pn-empty-title { color: var(--dsw-alias-label-primary); font-weight: 500;
   margin-bottom: 4px; }
@@ -210,6 +222,44 @@ window.__ModuleLoader__.load({
     }
 
     /**
+     * One note's text, with the clamp applied while `expanded` is false.
+     *
+     * The text always gets the full width of the item; the controls live in the
+     * parent's footer row. Overflow is *measured* from the rendered box and
+     * reported up, because a character threshold is wrong the moment the
+     * sidebar is resized — the parent owns the toggle so it can sit on the same
+     * line as the buttons.
+     * @param props.id - the note id, echoed back to `onOverflow`.
+     * @param props.text - the note's text.
+     * @param props.expanded - whether the user expanded this note.
+     * @param props.onOverflow - `(id, overflowing) => void`; called after layout.
+     */
+    function NoteText(props) {
+      const textRef = useRef(null)
+
+      React.useLayoutEffect(() => {
+        // While expanded the clamp is off, so there is nothing to measure; the
+        // parent keeps the last measurement, which is what keeps "show less".
+        if (props.expanded) return undefined
+        const element = textRef.current
+        if (element === null) return undefined
+        const measure = () => {
+          props.onOverflow(props.id, element.scrollHeight > element.clientHeight + 1)
+        }
+        measure()
+        if (typeof ResizeObserver !== 'function') return undefined
+        const observer = new ResizeObserver(measure)
+        observer.observe(element)
+        return () => observer.disconnect()
+      }, [props.expanded, props.id, props.onOverflow, props.text])
+
+      return h('div', {
+        ref: textRef,
+        className: props.expanded ? 'pn-item-text' : 'pn-item-text is-clamped',
+      }, props.text)
+    }
+
+    /**
      * The tab body: one Session's pending prompts.
      * @param props - the slot's standard props (`sessionId` is the binding).
      */
@@ -224,6 +274,12 @@ window.__ModuleLoader__.load({
       const [loading, setLoading] = useState(true)
       const [busy, setBusy] = useState(false)
       const [error, setError] = useState('')
+      /** Note ids the user expanded, and note ids whose text really overflows. */
+      const [expandedIds, setExpandedIds] = useState({})
+      const [overflowIds, setOverflowIds] = useState({})
+      const reportOverflow = useCallback((id, overflowing) => {
+        setOverflowIds((current) => (current[id] === overflowing ? current : { ...current, [id]: overflowing }))
+      }, [])
       const mountedRef = useRef(true)
 
       useEffect(() => {
@@ -393,7 +449,7 @@ window.__ModuleLoader__.load({
       function renderNote(note) {
         const sending = sendingId === note.id
         if (editing !== null && editing.id === note.id) {
-          return h('div', { className: 'pn-item is-editing', key: note.id },
+          return h('div', { className: 'pn-item', key: note.id },
             h('textarea', {
               className: 'pn-input',
               rows: 3,
@@ -413,44 +469,65 @@ window.__ModuleLoader__.load({
               },
             }),
             h('div', { className: 'pn-item-actions' },
-              h('button', {
+              h('div', { className: 'pn-item-buttons' },
+                h('button', {
+                  type: 'button',
+                  className: 'pn-btn',
+                  onClick: () => setEditing(null),
+                }, t('cancel')),
+                h('button', {
+                  type: 'button',
+                  className: 'pn-btn pn-primary',
+                  disabled: busy || editing.text.trim() === '',
+                  onClick: () => void saveEdit(),
+                }, t('save')))))
+        }
+        const expanded = expandedIds[note.id] === true
+        const overflowing = overflowIds[note.id] === true
+        return h('div', { className: sending ? 'pn-item is-sending' : 'pn-item', key: note.id },
+          h(NoteText, {
+            id: note.id,
+            text: note.text,
+            expanded,
+            onOverflow: reportOverflow,
+          }),
+          h('div', { className: 'pn-item-actions' },
+            (overflowing || expanded)
+              ? h('button', {
                 type: 'button',
-                className: 'pn-btn',
-                onClick: () => setEditing(null),
-              }, t('cancel')),
+                className: 'pn-more',
+                onClick: () => setExpandedIds((current) => {
+                  const next = { ...current }
+                  if (expanded) delete next[note.id]
+                  else next[note.id] = true
+                  return next
+                }),
+              }, expanded ? t('collapse') : t('expand'))
+              : null,
+            h('div', { className: 'pn-item-buttons' },
               h('button', {
                 type: 'button',
                 className: 'pn-btn pn-primary',
-                disabled: busy || editing.text.trim() === '',
-                onClick: () => void saveEdit(),
-              }, t('save'))))
-        }
-        return h('div', { className: sending ? 'pn-item is-sending' : 'pn-item', key: note.id },
-          h('div', { className: 'pn-item-text' }, note.text),
-          h('div', { className: 'pn-item-actions' },
-            h('button', {
-              type: 'button',
-              className: 'pn-btn pn-primary',
-              disabled: sendingId !== null,
-              title: t('send'),
-              onClick: () => void sendNote(note),
-            }, sending
-              ? t('sending')
-              : h(React.Fragment, null, ICON_SEND, ' ', t('send'))),
-            h('button', {
-              type: 'button',
-              className: 'pn-btn',
-              disabled: sending,
-              title: t('edit'),
-              onClick: () => setEditing({ id: note.id, text: note.text }),
-            }, t('edit')),
-            h('button', {
-              type: 'button',
-              className: 'pn-btn',
-              disabled: sending,
-              title: t('delete'),
-              onClick: () => void removeNote(note),
-            }, t('delete'))))
+                disabled: sendingId !== null,
+                title: t('send'),
+                onClick: () => void sendNote(note),
+              }, sending
+                ? t('sending')
+                : h(React.Fragment, null, ICON_SEND, ' ', t('send'))),
+              h('button', {
+                type: 'button',
+                className: 'pn-btn',
+                disabled: sending,
+                title: t('edit'),
+                onClick: () => setEditing({ id: note.id, text: note.text }),
+              }, t('edit')),
+              h('button', {
+                type: 'button',
+                className: 'pn-btn',
+                disabled: sending,
+                title: t('delete'),
+                onClick: () => void removeNote(note),
+              }, t('delete')))))
       }
     }
 
